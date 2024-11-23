@@ -1,0 +1,999 @@
+---
+title: "Lab Report: Computer lab 1 block 1"
+author: "Group_A10"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+---
+
+# Assignment 1: Handwritten Digit Recognition with K-Nearest Neighbors
+
+```{r, echo=FALSE}
+library(kknn)       # For K-Nearest Neighbors
+#Load and Preprocess Data
+# Load dataset
+file_path <- "data/optdigits.csv"
+optdigits_data <- read.csv(file_path)
+colnames(optdigits_data) <- c(paste0("pixel_", 1:64), "label")
+optdigits_data$label <- as.factor(optdigits_data$label)
+
+
+# Split into training and test sets
+set.seed(123)
+n <- nrow(optdigits_data)
+# Generate indices
+train_indices <- sample(1:n, size = 0.5 * n)  # 50% for training
+remaining_indices <- setdiff(1:n, train_indices)  # Remaining 50%
+test_indices <- sample(remaining_indices, size = 0.25 * n)  # 25% for testing
+validation_indices <- setdiff(remaining_indices, test_indices)  # Remaining 25% for validation
+
+# Subset the data
+train_data <- optdigits_data[train_indices, ]
+test_data <- optdigits_data[test_indices, ]
+validation_data <- optdigits_data[validation_indices, ]
+
+# Train the KNN classifier
+knn_model <- kknn(label ~ ., train = train_data, test = train_data, k = 30, kernel = "rectangular")
+
+
+# Predictions and performance
+train_predictions <- fitted(knn_model)
+conf_matrix_train <- table(Actual = train_data$label, Predicted = train_predictions)
+# print("Confusion Matrix (Training):")
+# print(conf_matrix_train)
+
+# Predict on test data
+test_predictions <- fitted(kknn(label ~ ., train = train_data, test = test_data, k = 30, kernel = "rectangular"))
+conf_matrix_test <- table(Actual = test_data$label, Predicted = test_predictions)
+# print("Confusion Matrix (Test):")
+# print(conf_matrix_test)
+
+
+# Misclassification error for training data
+train_total <- sum(conf_matrix_train)  # Total instances in training data
+train_correct <- sum(diag(conf_matrix_train))  # Correctly classified instances (sum of diagonal)
+train_misclassification_error <- 1 - train_correct / train_total
+
+# cat("Training Misclassification Error:", train_misclassification_error, "\n")
+
+# Misclassification error for test data
+test_total <- sum(conf_matrix_test)  # Total instances in training data
+test_correct <- sum(diag(conf_matrix_test))  # Correctly classified instances (sum of diagonal)
+test_misclassification_error <- 1 - test_correct / test_total
+
+# cat("Test Misclassification Error:", test_misclassification_error, "\n")
+
+
+# Get predicted probabilities for training data
+train_probabilities <- knn_model$prob  # Matrix of probabilities
+train_actual <- train_data$label  # Actual labels for training data
+
+# Extract rows corresponding to digit "8" in the training data
+digit_8_indices <- which(train_actual == "8")
+digit_8_probs <- train_probabilities[digit_8_indices, ]  # Probabilities for digit "8"
+
+digit_8_predicted_probs <- digit_8_probs[, "8"]
+
+easiest_indices <- digit_8_indices[order(digit_8_predicted_probs, decreasing = TRUE)[1:2]]
+hardest_indices <- digit_8_indices[order(digit_8_predicted_probs, decreasing = FALSE)[1:3]]
+
+# Extract feature data (pixels) for easiest and hardest cases
+easiest_features <- train_data[easiest_indices, 1:64]  # Features for easiest cases
+hardest_features <- train_data[hardest_indices, 1:64]  # Features for hardest cases
+
+# Reshape into 8x8 matrices
+# Reshape and store as numeric matrices
+easiest_matrices <- lapply(1:nrow(easiest_features), function(i) {
+  matrix(as.numeric(easiest_features[i, ]), nrow = 8, byrow = TRUE)
+})
+
+hardest_matrices <- lapply(1:nrow(hardest_features), function(i) {
+  matrix(as.numeric(hardest_features[i, ]), nrow = 8, byrow = TRUE)
+})
+
+# Visualize easiest cases
+# heatmap(easiest_matrices[[1]], Colv = NA, Rowv = NA, scale = "none", main = paste("Easiest Case", i), xlab = "", ylab = "")
+# heatmap(easiest_matrices[[2]], Colv = NA, Rowv = NA, scale = "none", main = paste("Easiest Case", i), xlab = "", ylab = "")
+# 
+# # Visualize hardest cases
+# heatmap(hardest_matrices[[1]], Colv = NA, Rowv = NA, scale = "none", main = paste("Hardest Case", i), xlab = "", ylab = "")
+# heatmap(hardest_matrices[[2]], Colv = NA, Rowv = NA, scale = "none", main = paste("Hardest Case", i), xlab = "", ylab = "")
+# heatmap(hardest_matrices[[3]], Colv = NA, Rowv = NA, scale = "none", main = paste("Hardest Case", i), xlab = "", ylab = "")
+# 
+# 
+
+
+
+
+
+# Initialize vectors to store errors
+k_values <- 1:30  # Values of K to test
+train_errors <- numeric(length(k_values))  # Training errors
+validation_errors <- numeric(length(k_values))  # Validation errors
+
+# Loop through each value of K
+for (k in k_values) {
+  # Train KNN model on training data
+  knn_model <- kknn(label ~ ., train = train_data, test = train_data, k = k, kernel = "rectangular")
+  train_predictions <- fitted(knn_model)
+  
+  # Calculate training misclassification error
+  conf_matrix_train <- table(Actual = train_data$label, Predicted = train_predictions)
+  train_correct <- sum(diag(conf_matrix_train))
+  train_total <- sum(conf_matrix_train)
+  train_errors[k] <- 1 - train_correct / train_total
+  
+  # Validate on validation data
+  validation_predictions <- fitted(kknn(label ~ ., train = train_data, test = validation_data, k = k, kernel = "rectangular"))
+  conf_matrix_validation <- table(Actual = validation_data$label, Predicted = validation_predictions)
+  validation_correct <- sum(diag(conf_matrix_validation))
+  validation_total <- sum(conf_matrix_validation)
+  validation_errors[k] <- 1 - validation_correct / validation_total
+}
+# 
+# # Plot training and validation errors with improvements
+# plot(k_values, train_errors, type = "b", col = "blue", pch = 19, 
+#      ylim = c(0, max(c(train_errors, validation_errors)) * 1.1), 
+#      xlab = "Number of Neighbors (K)", 
+#      ylab = "Misclassification Error", 
+#      main = "Training and Validation Errors vs. K in KNN")
+# 
+# lines(k_values, validation_errors, type = "b", col = "red", pch = 19)
+# 
+# # Add gridlines
+# abline(h = seq(0, max(c(train_errors, validation_errors)), by = 0.01), col = "gray", lty = 2)
+# abline(v = seq(1, 30, by = 1), col = "gray", lty = 2)
+# 
+# # Highlight optimal K
+# optimal_k <- which.min(validation_errors)
+# points(optimal_k, validation_errors[optimal_k], col = "darkgreen", pch = 19, cex = 1.5)
+# text(optimal_k, validation_errors[optimal_k], labels = paste("Optimal K =", optimal_k), pos = 3)
+# 
+# # Add legend
+# legend("topright", legend = c("Training Error", "Validation Error"), 
+#        col = c("blue", "red"), pch = 19, lty = 1, bty = "n")
+# 
+
+
+# Train the model with optimal K
+optimal_k <- 3
+knn_model_optimal <- kknn(label ~ ., train = train_data, test = test_data, k = optimal_k, kernel = "rectangular")
+
+# Predictions and confusion matrix
+test_predictions <- fitted(knn_model_optimal)
+conf_matrix_test <- table(Actual = test_data$label, Predicted = test_predictions)
+
+# Calculate test misclassification error
+test_total <- sum(conf_matrix_test)
+test_correct <- sum(diag(conf_matrix_test))
+test_misclassification_error <- 1 - test_correct / test_total
+
+# cat("Test Misclassification Error for K =", optimal_k, ":", test_misclassification_error, "\n")
+
+
+
+# Initialize vector to store cross-entropy errors
+cross_entropy_errors <- numeric(length(k_values))
+
+# Loop through each value of K
+for (k in k_values) {
+  # Train KNN model and get predicted probabilities for validation data
+  knn_model <- kknn(label ~ ., train = train_data, test = validation_data, k = k, kernel = "rectangular")
+  predicted_probs <- knn_model$prob  # Predicted probabilities
+  
+  # Ensure probabilities are numeric (to avoid issues)
+  predicted_probs <- as.matrix(predicted_probs)
+  
+  # Actual labels for the validation data (one-hot encoded)
+  actual_labels <- model.matrix(~ label - 1, data = validation_data)
+  
+  # Add a small constant to avoid log(0) issues
+  predicted_probs <- predicted_probs + 1e-15
+  
+  # Compute cross-entropy loss
+  cross_entropy_loss <- -sum(actual_labels * log(predicted_probs)) / nrow(validation_data)
+  
+  # Store the cross-entropy loss
+  cross_entropy_errors[k] <- cross_entropy_loss
+}
+
+# Plot cross-entropy errors for validation data
+# plot(k_values, cross_entropy_errors, type = "b", col = "blue", pch = 19,
+#      xlab = "Number of Neighbors (K)", ylab = "Cross-Entropy Error",
+#      main = "Validation Cross-Entropy Error vs. K")
+
+# Highlight optimal K
+# optimal_k_cross_entropy <- which.min(cross_entropy_errors)
+# optimal_cross_entropy_value <- cross_entropy_errors[optimal_k_cross_entropy]
+# 
+# # Mark the optimal K and cross-entropy value
+# points(optimal_k_cross_entropy, optimal_cross_entropy_value, col = "darkgreen", pch = 19, cex = 1.5)
+# text(optimal_k_cross_entropy, optimal_cross_entropy_value,
+#      labels = paste("Optimal K =", optimal_k_cross_entropy, "\nError =", round(optimal_cross_entropy_value, 4)),
+#      pos = 3)
+# 
+# # Add gridlines for better visualization
+# abline(h = seq(0, max(cross_entropy_errors), by = 0.1), col = "gray", lty = 2)
+# abline(v = seq(1, 30, by = 1), col = "gray", lty = 2)
+
+```
+
+-   **Training Misclassification Error**: `r train_misclassification_error`
+-   **Test Misclassification Error**: `r test_misclassification_error`
+
+**Confusion Matrix: Test Data**
+
+```{r, echo=FALSE, results='asis'}
+# Capture the confusion matrix as a character vector
+test_matrix <- capture.output(conf_matrix_test)
+
+# Print it in smaller font using LaTeX \small
+cat("\\small\n\\begin{verbatim}\n")
+cat(paste(test_matrix, collapse = "\n"))
+cat("\n\\end{verbatim}\n\\normalsize\n")
+```
+
+**Confusion Matrix: Training Data**
+
+```{r, echo=FALSE, results='asis'}
+# Capture the confusion matrix as a character vector
+train_matrix <- capture.output(conf_matrix_train)
+
+# Print it in smaller font using LaTeX \small
+cat("\\small\n\\begin{verbatim}\n")
+cat(paste(train_matrix, collapse = "\n"))
+cat("\n\\end{verbatim}\n\\normalsize\n")
+```
+
+## Summary of Prediction Quality
+### Key Results:
+- **Training Error**: 4.36%
+- **Test Error**: 4.62%
+- Strong generalization across datasets.
+
+### Class-Specific Observations:
+- **Best Performance**: Digit `0` (perfect classification).
+- **Strong Performance**: Digits `1`, `2`, `6`, `7` (minimal errors).
+- **Challenging Cases**:
+  - Digits `3`, `4`, `5`: Overlap with similar digits.
+  - Digits `8`, `9`: High confusion with `1` and `3`.
+
+------------------------------------------------------------------------
+
+**Visualizations of Easiest and Hardest Cases for Digit '8'**
+
+```{r, echo=FALSE,  figures-side1, fig.show="hold", out.width="33.3%"}
+par(mar = c(4, 4, .1, .1))
+
+# Plot the easiest cases (Row 1)
+heatmap(easiest_matrices[[1]], Colv = NA, Rowv = NA, scale = "none", 
+         xlab = "", ylab = "", main = "Easiest Case 1")
+heatmap(easiest_matrices[[2]], Colv = NA, Rowv = NA, scale = "none", 
+         xlab = "", ylab = "", main = "Easiest Case 2")
+```
+
+```{r, echo=FALSE, figures-side, fig.show="hold", out.width="33.3%"}
+# Add caption for Row 1
+par(mar = c(0, 4, 1, 1)) # Ensure space for text on the left
+
+# Plot the hardest cases (Row 2)
+heatmap(hardest_matrices[[1]], Colv = NA, Rowv = NA, scale = "none", 
+         xlab = "", ylab = "", main = "Hardest Case 1")
+heatmap(hardest_matrices[[2]], Colv = NA, Rowv = NA, scale = "none", 
+         xlab = "", ylab = "", main = "Hardest Case 2")
+heatmap(hardest_matrices[[3]], Colv = NA, Rowv = NA, scale = "none", 
+         xlab = "", ylab = "", main = "Hardest Case 3")
+
+layout(1)
+par(mar = c(5, 4, 4, 2)) # Reset to default
+```
+The hardest 3 cases are visually ambiguous and challenging to identify as "8," likely due to overlapping features or incomplete digit representation. In contrast, the easiest 2 cases are visually distinct and clearly recognizable as "8," making them straightforward to classify.
+
+```{r, echo=FALSE,  figures3, fig.show="hold", out.width="80%"}
+# Initialize vectors to store errors
+k_values <- 1:30  # Values of K to test
+train_errors <- numeric(length(k_values))  # Training errors
+validation_errors <- numeric(length(k_values))  # Validation errors
+
+# Loop through each value of K
+for (k in k_values) {
+  # Train KNN model on training data
+  knn_model <- kknn(label ~ ., train = train_data, test = train_data, k = k, kernel = "rectangular")
+  train_predictions <- fitted(knn_model)
+  
+  # Calculate training misclassification error
+  conf_matrix_train <- table(Actual = train_data$label, Predicted = train_predictions)
+  train_correct <- sum(diag(conf_matrix_train))
+  train_total <- sum(conf_matrix_train)
+  train_errors[k] <- 1 - train_correct / train_total
+  
+  # Validate on validation data
+  validation_predictions <- fitted(kknn(label ~ ., train = train_data, test = validation_data, k = k, kernel = "rectangular"))
+  conf_matrix_validation <- table(Actual = validation_data$label, Predicted = validation_predictions)
+  validation_correct <- sum(diag(conf_matrix_validation))
+  validation_total <- sum(conf_matrix_validation)
+  validation_errors[k] <- 1 - validation_correct / validation_total
+}
+
+# Plot training and validation errors with improvements
+plot(k_values, train_errors, type = "b", col = "blue", pch = 19, 
+     ylim = c(0, max(c(train_errors, validation_errors)) * 1.1), 
+     xlab = "Number of Neighbors (K)", 
+     ylab = "Misclassification Error", 
+     main = "Training and Validation Errors vs. K in KNN")
+
+lines(k_values, validation_errors, type = "b", col = "red", pch = 19)
+
+# Add gridlines
+abline(h = seq(0, max(c(train_errors, validation_errors)), by = 0.01), col = "gray", lty = 2)
+abline(v = seq(1, 30, by = 1), col = "gray", lty = 2)
+
+# Highlight optimal K
+optimal_k <- which.min(validation_errors)
+points(optimal_k, validation_errors[optimal_k], col = "darkgreen", pch = 19, cex = 1.5)
+text(optimal_k, validation_errors[optimal_k], labels = paste("Optimal K =", optimal_k), pos = 3)
+
+# Add legend
+legend("topright", legend = c("Training Error", "Validation Error"), 
+       col = c("blue", "red"), pch = 19, lty = 1, bty = "n")
+```
+
+
+- **Model Complexity**:
+  - As \( K \) increases, the model becomes less complex because it considers more neighbors for classification. This effectively smooths the decision boundaries.
+  - For **small \( K \)** (e.g., \( K = 1 \)), the model is highly complex as it relies only on the nearest neighbor, leading to potential overfitting.
+
+- **Effect on Errors**:
+  - **Training Error**:
+    - For small \( K \), the training error is very low (almost 0) due to overfitting.
+    - As \( K \) increases, the training error gradually rises because the model becomes less sensitive to individual training points.
+  - **Validation Error**:
+    - Validation error initially decreases as \( K \) increases, reducing overfitting.
+    - Beyond a certain point, validation error starts increasing due to underfitting when the model becomes overly smoothed.
+
+---
+
+## Optimal \( K \) According to the Plot
+
+- From the plot, the **optimal \( K \)** corresponds to the minimum validation error.
+- **Optimal \( K = 3 \)** in this case, as the validation error is lowest at this point.
+
+## Comparison of Test, Training, and Validation Errors
+
+The test misclassification error for \( K = 3 \) is **0.0325**, which is slightly higher than the validation error (**0.0282**) and significantly higher than the training error (**0.0094**). This indicates that the model generalizes well to unseen data while maintaining a low error on the training data.
+
+
+```{r, echo=FALSE,  figures4, fig.show="hold", out.width="80%"}
+# Initialize vector to store cross-entropy errors
+cross_entropy_errors <- numeric(length(k_values))
+
+# Loop through each value of K
+for (k in k_values) {
+  # Train KNN model and get predicted probabilities for validation data
+  knn_model <- kknn(label ~ ., train = train_data, test = validation_data, k = k, kernel = "rectangular")
+  predicted_probs <- knn_model$prob  # Predicted probabilities
+  
+  # Ensure probabilities are numeric (to avoid issues)
+  predicted_probs <- as.matrix(predicted_probs)
+  
+  # Actual labels for the validation data (one-hot encoded)
+  actual_labels <- model.matrix(~ label - 1, data = validation_data)
+  
+  # Add a small constant to avoid log(0) issues
+  predicted_probs <- predicted_probs + 1e-15
+  
+  # Compute cross-entropy loss
+  cross_entropy_loss <- -sum(actual_labels * log(predicted_probs)) / nrow(validation_data)
+  
+  # Store the cross-entropy loss
+  cross_entropy_errors[k] <- cross_entropy_loss
+}
+
+# Plot cross-entropy errors for validation data
+plot(k_values, cross_entropy_errors, type = "b", col = "blue", pch = 19,
+     xlab = "Number of Neighbors (K)", ylab = "Cross-Entropy Error",
+     main = "Validation Cross-Entropy Error vs. K")
+
+# Highlight optimal K
+optimal_k_cross_entropy <- which.min(cross_entropy_errors)
+optimal_cross_entropy_value <- cross_entropy_errors[optimal_k_cross_entropy]
+
+# Mark the optimal K and cross-entropy value
+points(optimal_k_cross_entropy, optimal_cross_entropy_value, col = "darkgreen", pch = 19, cex = 1.5)
+text(optimal_k_cross_entropy, optimal_cross_entropy_value, 
+     labels = paste("Optimal K =", optimal_k_cross_entropy, "\nError =", round(optimal_cross_entropy_value, 4)), 
+     pos = 3)
+```
+
+## Optimal \( K \) Value and Suitability of Cross-Entropy Error
+
+- **Optimal \( K \)**:
+  - From the graph, the **optimal \( K \)** is **19**, as the validation cross-entropy error is minimized at this point (**Error = 0.1456**).
+
+- **Why Cross-Entropy is More Suitable**:
+  - Cross-entropy considers the confidence of predictions by penalizing incorrect or low-probability predictions more heavily.
+  - Unlike misclassification error, which treats all incorrect predictions equally, cross-entropy error differentiates between predictions with varying levels of certainty.
+  - In a multinomial distribution (as in this case with multiple classes), cross-entropy provides a probabilistic perspective, which is essential for understanding model confidence and calibration, making it more informative for fine-tuning models.
+
+# Assignment 2: Linear regression and ridge regression
+
+
+```{r, echo=FALSE}
+scale_features <- function(data) {
+  data_scaled <- data
+  data_scaled[ , -which(names(data) == "motor_UPDRS")] <- scale(data[ , -which(names(data) == "motor_UPDRS")])
+  return(data_scaled)
+}
+
+# Define the log-likelihood function
+Loglikelihood <- function(theta, sigma, X, y) {
+  n <- nrow(X)
+  y_pred <- X %*% theta
+  residual_sum_squares <- sum((y - y_pred)^2)
+  
+  log_likelihood <- - (n / 2) * log(2 * pi) - (n / 2) * log(sigma^2) - 
+    (1 / (2 * sigma^2)) * residual_sum_squares
+  return(log_likelihood)
+}
+
+# Define Ridge log-likelihood function
+Ridge <- function(theta, sigma, X, y, lambda) {
+  log_likelihood <- Loglikelihood(theta, sigma, X, y)
+  ridge_penalty <- lambda * sum(theta[-1]^2)  # Exclude intercept
+  return(log_likelihood - ridge_penalty)
+}
+
+# Define Ridge optimization function
+RidgeOpt <- function(X, y, lambda) {
+  initial_theta <- rep(0, ncol(X))  # Initialize theta to zeros
+  initial_sigma <- 1               # Initial guess for sigma
+  initial_values <- c(initial_theta, initial_sigma)
+  
+  objective_function <- function(params) {
+    theta <- params[1:(length(params) - 1)]
+    sigma <- params[length(params)]
+    return(-Ridge(theta, sigma, X, y, lambda))
+  }
+  
+  # Minimize the negative Ridge log-likelihood
+  result <- optim(par = initial_values, fn = objective_function, method = "BFGS")
+  
+  optimized_theta <- result$par[1:(length(result$par) - 1)]
+  optimized_sigma <- result$par[length(result$par)]
+  
+  return(list(theta = optimized_theta, sigma = optimized_sigma, value = result$value))
+}
+
+# Function to calculate degrees of freedom for Ridge regression
+DF <- function(X, lambda) {
+  p <- ncol(X)
+  I <- diag(p)
+  XtX <- t(X) %*% X
+  ridge_matrix <- solve(XtX + lambda * I)
+  H <- X %*% ridge_matrix %*% t(X)
+  return(sum(diag(H)))
+}
+
+
+#Load and Preprocess Data
+# Load dataset
+file_path <- "data/parkinsons.csv"
+parkinson_data <- read.csv(file_path)
+
+# Split into training and test sets
+set.seed(123)
+n <- nrow(parkinson_data)
+train_indices <- sample(1:n, size = 0.6 * n)
+train_data <- parkinson_data[train_indices, ]
+test_data <- parkinson_data[-train_indices, ]
+
+# Scale features
+train_data_scaled <- scale_features(train_data)
+test_data_scaled <- scale_features(test_data)
+
+
+#Train Linear Model
+# Fit linear model
+linear_model <- lm(motor_UPDRS ~ ., data = train_data_scaled)
+# Predictions
+train_predictions <- predict(linear_model, train_data_scaled)
+test_predictions <- predict(linear_model, test_data_scaled)
+
+# Calculate MSE
+train_mse <- mean((train_data_scaled$motor_UPDRS - train_predictions)^2)
+test_mse <- mean((test_data_scaled$motor_UPDRS - test_predictions)^2)
+
+# Display MSE
+# <!-- cat("Train MSE:", train_mse, "\n") -->
+# <!-- cat("Test MSE:", test_mse, "\n") -->
+
+
+
+#Ridge Regression
+# Prepare data for Ridge regression
+X <- as.matrix(cbind(1, train_data_scaled[, -which(names(train_data_scaled) == "motor_UPDRS")]))
+y <- train_data_scaled$motor_UPDRS
+
+# Initial log-likelihood
+theta_initial <- coef(linear_model)
+sigma_initial <- summary(linear_model)$sigma
+log_likelihood_value <- Loglikelihood(theta_initial, sigma_initial, X, y)
+# cat("Log-Likelihood (Linear Model):", log_likelihood_value, "\n")
+
+# Ridge optimization with λ = 0.001
+lambda <- 0.001
+ridge_optimization_result <- RidgeOpt(X, y, lambda)
+
+#Degrees of Freedom Analysis
+# Degrees of Freedom for Ridge regression
+lambda <- 10
+degrees_of_freedom <- DF(X, lambda)
+
+# Compute predictions and MSE
+predict_ridge <- function(X, y, theta) {
+  y_pred <- X %*% theta
+  mse <- mean((y - y_pred)^2)
+  return(list(predictions = y_pred, mse = mse))
+}
+
+# Perform Ridge regression and compute metrics for given lambda values
+lambda_values <- c(1, 100, 1000)
+results <- list()
+
+for (lambda in lambda_values) {
+  # Optimize Ridge parameters
+  ridge_result <- RidgeOpt(X, y, lambda)
+  
+  # Extract optimized parameters
+  optimized_theta <- ridge_result$theta
+  optimized_sigma <- ridge_result$sigma
+  
+  # Predict on training and test data
+  train_result <- predict_ridge(X, y, optimized_theta)
+  test_result <- predict_ridge(as.matrix(cbind(1, test_data_scaled[, -which(names(test_data_scaled) == "motor_UPDRS")])), 
+                               test_data_scaled$motor_UPDRS, optimized_theta)
+  
+  # Compute Degrees of Freedom
+  degrees_of_freedom <- DF(X, lambda)
+  
+  # Store results
+  results[[as.character(lambda)]] <- list(
+    lambda = lambda,
+    optimized_theta = optimized_theta,
+    optimized_sigma = optimized_sigma,
+    train_mse = train_result$mse,
+    test_mse = test_result$mse,
+    degrees_of_freedom = degrees_of_freedom
+  )
+}
+
+# } 
+```
+
+-   **Training MSE**: `r train_mse`
+-   **Test MSE**: `r test_mse`
+
+The linear regression model shows that age, sex, total_UPDRS, Jitter.Abs., Shimmer.APQ5, and Shimmer.APQ11 are significant predictors of motor_UPDRS based on their low p-values (< 0.05). The total_UPDRS variable has the strongest influence, while others contribute moderately. The training MSE and test MSE indicate the model's accuracy on respective datasets.
+
+## Optimal theta parameters for different lambda values
+
+-   **lambda = 1**
+
+```{r echo=FALSE}
+lambda <- 1
+ridge_optimization_result <- RidgeOpt(X, y, lambda)
+```
+
+-   **Optimized Theta (coefficients):**: `r ridge_optimization_result$theta`
+-   **lambda = 100**
+
+```{r echo=FALSE}
+lambda <- 100
+ridge_optimization_result <- RidgeOpt(X, y, lambda)
+```
+
+-   **Optimized Theta (coefficients):**: `r ridge_optimization_result$theta`
+-   **lambda = 1000**
+
+```{r echo=FALSE}
+lambda <- 1
+ridge_optimization_result <- RidgeOpt(X, y, lambda)
+```
+
+-   **Optimized Theta (coefficients):**: `r ridge_optimization_result$theta`
+
+```{r echo=FALSE, results='asis'}
+# Prepare a function to compute predictions and MSE
+predict_ridge <- function(X, y, theta) {
+  y_pred <- X %*% theta
+  mse <- mean((y - y_pred)^2)
+  return(list(predictions = y_pred, mse = mse))
+}
+
+# Perform Ridge regression and compute metrics for given lambda values
+lambda_values <- c(1, 100, 1000)
+results <- data.frame(
+  Lambda = numeric(),
+  Train_MSE = numeric(),
+  Test_MSE = numeric(),
+  Degrees_of_Freedom = numeric(),
+  Optimized_Sigma = numeric()
+)
+
+for (lambda in lambda_values) {
+  # Optimize Ridge parameters
+  ridge_result <- RidgeOpt(X, y, lambda)
+  
+  # Extract optimized parameters
+  optimized_theta <- ridge_result$theta
+  optimized_sigma <- ridge_result$sigma
+  
+  # Predict on training and test data
+  train_result <- predict_ridge(X, y, optimized_theta)
+  test_result <- predict_ridge(as.matrix(cbind(1, test_data_scaled[, -which(names(test_data_scaled) == "motor_UPDRS")])), 
+                               test_data_scaled$motor_UPDRS, optimized_theta)
+  
+  # Compute Degrees of Freedom
+  degrees_of_freedom <- DF(X, lambda)
+  
+  # Append results to the data frame
+  results <- rbind(
+    results,
+    data.frame(
+      Lambda = lambda,
+      Train_MSE = train_result$mse,
+      Test_MSE = test_result$mse,
+      Degrees_of_Freedom = degrees_of_freedom,
+      Optimized_Sigma = optimized_sigma
+    )
+  )
+}
+
+# Display results as a table using knitr::kable
+knitr::kable(results, format = "pipe", align = "c", caption = "Ridge Regression Results for Different Lambda Values")
+```
+
+From the table above, the choice of the penalty parameter **λ** significantly affects the model's performance and complexity. Here's the detailed analysis:
+
+- **lambda = 1**:
+  - Achieves the lowest **Train MSE** (6.085893) and **Test MSE** (6.560836).
+  - Maintains a **Degrees of Freedom (DF)** of 19.84347, meaning more predictors contribute effectively to the model.
+  - Indicates a balance between model complexity and generalization.
+
+- **lambda = 100**:
+  - Results in higher **Train MSE** (25.88616) and **Test MSE** (26.94751) compared to **lambda = 1**.
+  - Reduces **DF** to 15.59068, indicating a stronger penalty and increased regularization.
+  - May lead to underfitting as the model becomes overly simplified.
+
+- **lambda = 1000**:
+  - Has the highest **Train MSE** (61.36093) and **Test MSE** (62.8066), demonstrating significant underfitting.
+  - Reduces **DF** further to 10.04924, suggesting excessive shrinkage of predictor coefficients.
+  - Results in a simpler but less accurate model.
+
+
+Based on the results and analysis:
+
+- **lambda = 1** is the most appropriate penalty parameter. It minimizes both **Train MSE** and **Test MSE**, while maintaining a high **Degrees of Freedom**, ensuring that the model is neither over-regularized nor under-regularized.
+- As **lambda** increases, the model becomes overly regularized, leading to underfitting (higher MSE and lower DF).
+
+
+# Appendix
+
+## Code for Asssignment 1
+```{r appendix_Asssignment_1, echo=TRUE, eval=FALSE}
+#Load and Preprocess Data
+# Load dataset
+file_path <- "data/optdigits.csv"
+optdigits_data <- read.csv(file_path)
+colnames(optdigits_data) <- c(paste0("pixel_", 1:64), "label")
+optdigits_data$label <- as.factor(optdigits_data$label)
+
+# Split into training and test sets
+set.seed(123)
+n <- nrow(optdigits_data)
+# Generate indices
+train_indices <- sample(1:n, size = 0.5 * n)  # 50% for training
+remaining_indices <- setdiff(1:n, train_indices)  # Remaining 50%
+test_indices <- sample(remaining_indices, size = 0.25 * n)  # 25% for testing
+validation_indices <- setdiff(remaining_indices, test_indices)  # Remaining 25% for validation
+
+# Subset the data
+train_data <- optdigits_data[train_indices, ]
+test_data <- optdigits_data[test_indices, ]
+validation_data <- optdigits_data[validation_indices, ]
+
+# Train the KNN classifier
+knn_model <- kknn(label ~ ., train = train_data, test = train_data, k = 30, kernel = "rectangular")
+
+
+# Predictions and performance
+train_predictions <- fitted(knn_model)
+conf_matrix_train <- table(Actual = train_data$label, Predicted = train_predictions)
+print("Confusion Matrix (Training):")
+print(conf_matrix_train)
+
+# Predict on test data
+test_predictions <- fitted(kknn(label ~ ., train = train_data, test = test_data, k = 30, kernel = "rectangular"))
+conf_matrix_test <- table(Actual = test_data$label, Predicted = test_predictions)
+print("Confusion Matrix (Test):")
+print(conf_matrix_test)
+
+
+# Misclassification error for training data
+train_total <- sum(conf_matrix_train)  # Total instances in training data
+train_correct <- sum(diag(conf_matrix_train))  # Correctly classified instances (sum of diagonal)
+train_misclassification_error <- 1 - train_correct / train_total
+
+cat("Training Misclassification Error:", train_misclassification_error, "\n")
+
+# Misclassification error for test data
+test_total <- sum(conf_matrix_test)  # Total instances in training data
+test_correct <- sum(diag(conf_matrix_test))  # Correctly classified instances (sum of diagonal)
+test_misclassification_error <- 1 - test_correct / test_total
+
+cat("Test Misclassification Error:", test_misclassification_error, "\n")
+
+
+# Get predicted probabilities for training data
+train_probabilities <- knn_model$prob  # Matrix of probabilities
+train_actual <- train_data$label  # Actual labels for training data
+
+# Extract rows corresponding to digit "8" in the training data
+digit_8_indices <- which(train_actual == "8")
+digit_8_probs <- train_probabilities[digit_8_indices, ]  # Probabilities for digit "8"
+
+digit_8_predicted_probs <- digit_8_probs[, "8"]
+
+easiest_indices <- digit_8_indices[order(digit_8_predicted_probs, decreasing = TRUE)[1:2]]
+hardest_indices <- digit_8_indices[order(digit_8_predicted_probs, decreasing = FALSE)[1:3]]
+
+# Extract feature data (pixels) for easiest and hardest cases
+easiest_features <- train_data[easiest_indices, 1:64]  # Features for easiest cases
+hardest_features <- train_data[hardest_indices, 1:64]  # Features for hardest cases
+
+# Reshape into 8x8 matrices
+# Reshape and store as numeric matrices
+easiest_matrices <- lapply(1:nrow(easiest_features), function(i) {
+  matrix(as.numeric(easiest_features[i, ]), nrow = 8, byrow = TRUE)
+})
+
+hardest_matrices <- lapply(1:nrow(hardest_features), function(i) {
+  matrix(as.numeric(hardest_features[i, ]), nrow = 8, byrow = TRUE)
+})
+
+# Visualize easiest cases
+heatmap(easiest_matrices[[1]], Colv = NA, Rowv = NA, scale = "none", main = paste("Easiest Case", 1), xlab = "", ylab = "")
+heatmap(easiest_matrices[[2]], Colv = NA, Rowv = NA, scale = "none", main = paste("Easiest Case", 2), xlab = "", ylab = "")
+
+# Visualize hardest cases
+heatmap(hardest_matrices[[1]], Colv = NA, Rowv = NA, scale = "none", main = paste("Hardest Case", 1), xlab = "", ylab = "")
+heatmap(hardest_matrices[[2]], Colv = NA, Rowv = NA, scale = "none", main = paste("Hardest Case", 2), xlab = "", ylab = "")
+heatmap(hardest_matrices[[3]], Colv = NA, Rowv = NA, scale = "none", main = paste("Hardest Case", 3), xlab = "", ylab = "")
+
+
+
+# Initialize vectors to store errors
+k_values <- 1:30  # Values of K to test
+train_errors <- numeric(length(k_values))  # Training errors
+validation_errors <- numeric(length(k_values))  # Validation errors
+
+# Loop through each value of K
+for (k in k_values) {
+  # Train KNN model on training data
+  knn_model <- kknn(label ~ ., train = train_data, test = train_data, k = k, kernel = "rectangular")
+  train_predictions <- fitted(knn_model)
+  
+  # Calculate training misclassification error
+  conf_matrix_train <- table(Actual = train_data$label, Predicted = train_predictions)
+  train_correct <- sum(diag(conf_matrix_train))
+  train_total <- sum(conf_matrix_train)
+  train_errors[k] <- 1 - train_correct / train_total
+  
+  # Validate on validation data
+  validation_predictions <- fitted(kknn(label ~ ., train = train_data, test = validation_data, k = k, kernel = "rectangular"))
+  conf_matrix_validation <- table(Actual = validation_data$label, Predicted = validation_predictions)
+  validation_correct <- sum(diag(conf_matrix_validation))
+  validation_total <- sum(conf_matrix_validation)
+  validation_errors[k] <- 1 - validation_correct / validation_total
+  
+}
+# 
+# Plot training and validation errors
+plot(k_values, train_errors, type = "b", col = "blue", pch = 19,
+     ylim = c(0, max(c(train_errors, validation_errors)) * 1.1),
+     xlab = "Number of Neighbors (K)",
+     ylab = "Misclassification Error",
+     main = "Training and Validation Errors vs. K in KNN")
+
+lines(k_values, validation_errors, type = "b", col = "red", pch = 19)
+
+# Add gridlines
+abline(h = seq(0, max(c(train_errors, validation_errors)), by = 0.01), col = "gray", lty = 2)
+abline(v = seq(1, 30, by = 1), col = "gray", lty = 2)
+
+# Highlight optimal K
+optimal_k <- which.min(validation_errors)
+points(optimal_k, validation_errors[optimal_k], col = "darkgreen", pch = 19, cex = 1.5)
+text(optimal_k, validation_errors[optimal_k], labels = paste("Optimal K =", optimal_k), pos = 3)
+
+# Add legend
+legend("topright", legend = c("Training Error", "Validation Error"),
+       col = c("blue", "red"), pch = 19, lty = 1, bty = "n")
+
+
+
+# Train the model with optimal K
+optimal_k <- 3
+knn_model_optimal <- kknn(label ~ ., train = train_data, test = test_data, k = optimal_k, kernel = "rectangular")
+
+# Predictions and confusion matrix
+test_predictions <- fitted(knn_model_optimal)
+conf_matrix_test <- table(Actual = test_data$label, Predicted = test_predictions)
+
+# Calculate test misclassification error
+test_total <- sum(conf_matrix_test)
+test_correct <- sum(diag(conf_matrix_test))
+test_misclassification_error <- 1 - test_correct / test_total
+
+cat("Test Misclassification Error for K =", optimal_k, ":", test_misclassification_error, "\n")
+
+#Plot cross-entropy errors for validation data
+plot(k_values, cross_entropy_errors, type = "b", col = "blue", pch = 19,
+     xlab = "Number of Neighbors (K)", ylab = "Cross-Entropy Error",
+     main = "Validation Cross-Entropy Error vs. K")
+
+#Highlight optimal K
+optimal_k_cross_entropy <- which.min(cross_entropy_errors)
+optimal_cross_entropy_value <- cross_entropy_errors[optimal_k_cross_entropy]
+
+# Mark the optimal K and cross-entropy value
+points(optimal_k_cross_entropy, optimal_cross_entropy_value, col = "darkgreen", pch = 19, cex = 1.5)
+text(optimal_k_cross_entropy, optimal_cross_entropy_value,
+     labels = paste("Optimal K =", optimal_k_cross_entropy, "\nError =", round(optimal_cross_entropy_value, 4)),
+     pos = 3)
+
+# Add gridlines for better visualization
+abline(h = seq(0, max(cross_entropy_errors), by = 0.1), col = "gray", lty = 2)
+abline(v = seq(1, 30, by = 1), col = "gray", lty = 2)
+```
+
+## Code for Asssignment 2
+```{r appendix_Asssignment_2, echo=TRUE, eval=FALSE}
+scale_features <- function(data) {
+  data_scaled <- data
+  data_scaled[ , -which(names(data) == "motor_UPDRS")] <- scale(data[ , -which(names(data) == "motor_UPDRS")])
+  return(data_scaled)
+}
+
+# Define the Loglikelihood function
+Loglikelihood <- function(theta, sigma, X, y) {
+  n <- nrow(X)
+  y_pred <- X %*% theta
+  residual_sum_squares <- sum((y - y_pred)^2)
+  
+  log_likelihood <- - (n / 2) * log(2 * pi) - (n / 2) * log(sigma^2) - 
+    (1 / (2 * sigma^2)) * residual_sum_squares
+  return(log_likelihood)
+}
+
+# Define Ridge function
+Ridge <- function(theta, sigma, X, y, lambda) {
+  log_likelihood <- Loglikelihood(theta, sigma, X, y)
+  ridge_penalty <- lambda * sum(theta[-1]^2)  # Exclude intercept
+  return(log_likelihood - ridge_penalty)
+}
+
+# Define Ridge optimization function
+RidgeOpt <- function(X, y, lambda) {
+  initial_theta <- rep(0, ncol(X))  # Initialize theta to zeros
+  initial_sigma <- 1               # Initial guess for sigma
+  initial_values <- c(initial_theta, initial_sigma)
+  
+  objective_function <- function(params) {
+    theta <- params[1:(length(params) - 1)]
+    sigma <- params[length(params)]
+    return(-Ridge(theta, sigma, X, y, lambda))
+  }
+  
+  # Minimize the negative Ridge log-likelihood
+  result <- optim(par = initial_values, fn = objective_function, method = "BFGS")
+  
+  optimized_theta <- result$par[1:(length(result$par) - 1)]
+  optimized_sigma <- result$par[length(result$par)]
+  
+  return(list(theta = optimized_theta, sigma = optimized_sigma, value = result$value))
+}
+
+# Function to calculate degrees of freedom for Ridge regression
+DF <- function(X, lambda) {
+  p <- ncol(X)
+  I <- diag(p)
+  XtX <- t(X) %*% X
+  ridge_matrix <- solve(XtX + lambda * I)
+  H <- X %*% ridge_matrix %*% t(X)
+  return(sum(diag(H)))
+}
+
+
+#Load and Preprocess Data
+# Load dataset
+file_path <- "data/parkinsons.csv"
+parkinson_data <- read.csv(file_path)
+
+# Split into training and test sets
+set.seed(123)
+n <- nrow(parkinson_data)
+train_indices <- sample(1:n, size = 0.6 * n)
+train_data <- parkinson_data[train_indices, ]
+test_data <- parkinson_data[-train_indices, ]
+
+# Scale features
+train_data_scaled <- scale_features(train_data)
+test_data_scaled <- scale_features(test_data)
+
+
+#Train Linear Model
+# Fit linear model
+linear_model <- lm(motor_UPDRS ~ ., data = train_data_scaled)
+# Predictions
+train_predictions <- predict(linear_model, train_data_scaled)
+test_predictions <- predict(linear_model, test_data_scaled)
+
+# Calculate MSE
+train_mse <- mean((train_data_scaled$motor_UPDRS - train_predictions)^2)
+test_mse <- mean((test_data_scaled$motor_UPDRS - test_predictions)^2)
+
+# Display MSE
+cat("Train MSE:", train_mse, "\n") 
+cat("Test MSE:", test_mse, "\n") 
+
+
+
+#Ridge Regression
+# Prepare data for Ridge regression
+X <- as.matrix(cbind(1, train_data_scaled[, -which(names(train_data_scaled) == "motor_UPDRS")]))
+y <- train_data_scaled$motor_UPDRS
+
+# Initial log-likelihood
+theta_initial <- coef(linear_model)
+sigma_initial <- summary(linear_model)$sigma
+log_likelihood_value <- Loglikelihood(theta_initial, sigma_initial, X, y)
+cat("Log-Likelihood (Linear Model):", log_likelihood_value, "\n")
+
+# Ridge optimization with λ = 0.001
+lambda <- 0.001
+ridge_optimization_result <- RidgeOpt(X, y, lambda)
+cat("Optimized Theta (coefficients):\n", ridge_optimization_result$theta, "\n")
+cat("Optimized Sigma (residual standard error):\n", ridge_optimization_result$sigma, "\n")
+cat("Minimized Negative Log-Likelihood:\n", ridge_optimization_result$value, "\n")
+
+
+#Degrees of Freedom Analysis
+# Degrees of Freedom for Ridge regression
+lambda <- 10
+degrees_of_freedom <- DF(X, lambda)
+#cat("Degrees of Freedom for Ridge Regression (λ =", lambda, "):", degrees_of_freedom, "\n")
+
+# Compute predictions and MSE
+predict_ridge <- function(X, y, theta) {
+  y_pred <- X %*% theta
+  mse <- mean((y - y_pred)^2)
+  return(list(predictions = y_pred, mse = mse))
+}
+
+# Perform Ridge regression and compute metrics for given lambda values
+
+
+#Display results
+for (lambda in names(results)) {
+result <- results[[lambda]]
+cat("Lambda =", result$lambda, "\n")
+cat("Train MSE:", result$train_mse, "\n")
+cat("Test MSE:", result$test_mse, "\n")
+cat("Degrees of Freedom:", result$degrees_of_freedom, "\n")
+cat("Optimized Sigma:", result$optimized_sigma, "\n")
+cat("\n")
+}
+
+```
