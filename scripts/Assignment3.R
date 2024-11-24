@@ -24,6 +24,10 @@ m = glm(diabetes ~ age + plasma, data=train, family="binomial")
 
 df$predicted_prob <- predict(m, newdata = df, type = "response")
 classification_threshold <- 0.5
-df$prediction <- ifelse(df$predicted_prob > classification_threshold, 1 , 0)
+df$prediction <- df$predicted_prob > classification_threshold
 
 missclassification_rate <- sum(df$diabetes != df$prediction) / nrow(df)
+
+df |> ggplot() +
+      geom_point(aes(x = age, y = plasma, color = prediction)) +
+      labs(x = "Age", y = "Plasma glucose concentration", color = "Predicted to have diabetes?")
