@@ -1,3 +1,4 @@
+set.seed(12345)
 library(ggplot2)
 df <- read.csv('data/pima-indians-diabetes.csv')
 
