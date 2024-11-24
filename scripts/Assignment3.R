@@ -20,3 +20,9 @@ df |> ggplot() +
 
 df$diabetes
 
+m = glm(diabetes ~ age + plasma, data=train, family="binomial")
+
+df$predicted_prob <- predict(m, newdata = df, type = "response")
+df$prediction <- ifelse(df$predicted_prob > 0.5, 1 , 0)
+
+missclassification_rate <- sum(df$diabetes != df$prediction) / nrow(df)
