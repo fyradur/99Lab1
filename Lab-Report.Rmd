@@ -4,7 +4,7 @@ author: "Group_A10"
 date: "`r Sys.Date()`"
 output: 
   pdf_document:
-    latex_engine: xelatex
+    latex_engine: pdflatex
 ---
 
 # Assignment 1: Handwritten Digit Recognition with K-Nearest Neighbors
@@ -738,7 +738,7 @@ df |> ggplot() +
 ```
 
 ## 3.3
-Since \( r = 0.5 \) we have that the decision boundary can be solved from the equation
+Since $r = 0.5$ we have that the decision boundary can be solved from the equation
 $\frac{e ^{k_0 + k_1 \cdot x_2 + k_2 \cdot x_1}}{1 + e ^{k_0 + k_1 \cdot x_2 + k_2 \cdot x_1}} = 0.5$
 
 Which is equivalent to
