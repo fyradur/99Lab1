@@ -521,7 +521,7 @@ sigma_initial <- summary(linear_model)$sigma
 log_likelihood_value <- Loglikelihood(theta_initial, sigma_initial, X, y)
 # cat("Log-Likelihood (Linear Model):", log_likelihood_value, "\n")
 
-# Ridge optimization with λ = 0.001
+# Ridge optimization with lambda = 0.001
 lambda <- 0.001
 ridge_optimization_result <- RidgeOpt(X, y, lambda)
 
@@ -654,7 +654,7 @@ for (lambda in lambda_values) {
 knitr::kable(results, format = "pipe", align = "c", caption = "Ridge Regression Results for Different Lambda Values")
 ```
 
-From the table above, the choice of the penalty parameter **λ** significantly affects the model's performance and complexity. Here's the detailed analysis:
+From the table above, the choice of the penalty parameter $\lambda$ significantly affects the model's performance and complexity. Here's the detailed analysis:
 
 - **lambda = 1**:
   - Achieves the lowest **Train MSE** (6.085893) and **Test MSE** (6.560836).
@@ -739,14 +739,10 @@ df |> ggplot() +
 
 ## 3.3
 Since \( r = 0.5 \) we have that the decision boundary can be solved from the equation
-\begin{align*}
- \frac{e ^{k_0 + k_1 \cdot x_2 + k_2 \cdot x_1}}{1 + e ^{k_0 + k_1 \cdot x_2 + k_2 \cdot x_1}} = 0.5
-\end{align*}
+$\frac{e ^{k_0 + k_1 \cdot x_2 + k_2 \cdot x_1}}{1 + e ^{k_0 + k_1 \cdot x_2 + k_2 \cdot x_1}} = 0.5$
 
 Which is equivalent to
-\begin{align*}
-k_0 + k_1 \cdot x_2 + k_2 \cdot x_1 =  0
-\end{align*}
+$k_0 + k_1 \cdot x_2 + k_2 \cdot x_1 =  0$
 
 ```{r}
 # 0 = k1 + k2 * age + k3 * plasma
@@ -1124,7 +1120,7 @@ sigma_initial <- summary(linear_model)$sigma
 log_likelihood_value <- Loglikelihood(theta_initial, sigma_initial, X, y)
 cat("Log-Likelihood (Linear Model):", log_likelihood_value, "\n")
 
-# Ridge optimization with λ = 0.001
+# Ridge optimization with lambda= 0.001
 lambda <- 0.001
 ridge_optimization_result <- RidgeOpt(X, y, lambda)
 cat("Optimized Theta (coefficients):\n", ridge_optimization_result$theta, "\n")
@@ -1136,7 +1132,7 @@ cat("Minimized Negative Log-Likelihood:\n", ridge_optimization_result$value, "\n
 # Degrees of Freedom for Ridge regression
 lambda <- 10
 degrees_of_freedom <- DF(X, lambda)
-#cat("Degrees of Freedom for Ridge Regression (λ =", lambda, "):", degrees_of_freedom, "\n")
+#cat("Degrees of Freedom for Ridge Regression (lambda =", lambda, "):", degrees_of_freedom, "\n")
 
 # Compute predictions and MSE
 predict_ridge <- function(X, y, theta) {
