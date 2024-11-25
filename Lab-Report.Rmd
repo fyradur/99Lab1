@@ -677,6 +677,67 @@ Based on the results and analysis:
 - **lambda = 1** is the most appropriate penalty parameter. It minimizes both **Train MSE** and **Test MSE**, while maintaining a high **Degrees of Freedom**, ensuring that the model is neither over-regularized nor under-regularized.
 - As **lambda** increases, the model becomes overly regularized, leading to underfitting (higher MSE and lower DF).
 
+# Assignment 3
+In this assignment we will try to predict diabetes using
+age and plasma glucose concentration, using logistic regression.
+
+## 3.1
+Below is scatterplot of the data.
+
+```{r}
+set.seed(12345)
+library(ggplot2)
+df <- read.csv('data/pima-indians-diabetes.csv')
+
+colnames(df) <- c('pregnant',
+               'plasma',
+               'blood_pressure',
+               'triceps',
+               'insulin',
+               'bmi',
+               'diabetes_pedigree',
+               'age',
+               'diabetes')
+
+df$diabetes <- df$diabetes == 1
+
+df |> ggplot() +
+      geom_point(aes(x = age, y = plasma, color = diabetes)) +
+      labs(x = "Age", y = "Plasma glucose concentration", color = "Has diabetes?")
+
+```
+
+The success of doing logistic regression is predicated on being able
+to draw a good linear decision boundary. We see that there is chunk
+of false cases that can be easily separated, but then the remaining positive cases are mixed with some negative cases. So it should be 
+possible to model with linear regression, but the accuracy might be
+affected by the mix of negative cases in the region that will be
+identified as the positive cases.
+
+## 3.2
+We will model as the following. We will have a linear predictor
+$z = k1 + k2 \cdot x_2 + k_3 \cdot x_1$ where $x_1$ is plasma glucose concentration and $x_2$ is age. Then the random variable $Y$ which is 1 if one has diabetes and 0 otherwise will have the distribution
+$p(Y = 1 | x_1, x_2) = \frac{e ^{z} }{1 + e ^{z}}$.
+
+```{r}
+m = glm(diabetes ~ age + plasma, data=train, family="binomial")
+
+df$predicted_prob <- predict(m, newdata = df, type = "response")
+classification_threshold <- 0.5
+df$prediction <- df$predicted_prob > classification_threshold
+
+missclassification_rate <- sum(df$diabetes != df$prediction) / nrow(df)
+missclassification_rate
+```
+
+```{r}
+df |> ggplot() +
+      geom_point(aes(x = age, y = plasma, color = prediction)) +
+      labs(x = "Age", y = "Plasma glucose concentration", color = "Predicted to have diabetes?")
+
+```
+
+## 3.3
 
 # Appendix
 
