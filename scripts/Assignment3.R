@@ -28,6 +28,15 @@ df$prediction <- df$predicted_prob > classification_threshold
 
 missclassification_rate <- sum(df$diabetes != df$prediction) / nrow(df)
 
+# 0 = k1 + k2 * age + k3 * plasma
+k1 <- summary(m)$coefficients[1]
+k2 <- summary(m)$coefficients[2]
+k3 <- summary(m)$coefficients[3]
+
+# plasma = (-k1 -k2 * age) / k3
+plasma_function <- function(x)(-k1 -k2 * x) / k3
+
 df |> ggplot() +
       geom_point(aes(x = age, y = plasma, color = prediction)) +
+      geom_function(fun = plasma_function) +
       labs(x = "Age", y = "Plasma glucose concentration", color = "Predicted to have diabetes?")
