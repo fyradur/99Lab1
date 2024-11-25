@@ -837,8 +837,12 @@ sometimes one might prioritize identifying all the positive cases more than avoi
 The cost function associated to linear regression can be derived using MLE which is included in equation 3.21 on page 44
 
 On page 14 it mentions that collecting values for supervised problems may be done by having an expert manually label data, or the data might already have recorded the variable we want to predict.
-# Appendix
 
+# Statement of Contribution
+ - Nisal Amashan(nisra674) - Assignment 1, Assignment 2, Report
+ - John Möller (johmo870) - Assignment 3, Assignment 4, Report
+
+# Appendix
 ## Code for Asssignment 1
 ```{r appendix_Asssignment_1, echo=TRUE, eval=FALSE}
 #Load and Preprocess Data
@@ -1158,7 +1162,7 @@ cat("\n")
 ```
 
 ## Code for Assignment 3
-```{r}
+```{r, echo=TRUE, eval=FALSE}
 set.seed(12345)
 library(ggplot2)
 df <- read.csv('data/pima-indians-diabetes.csv')
@@ -1252,4 +1256,3 @@ df |> ggplot() +
 
 
 ```
-
