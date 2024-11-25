@@ -40,3 +40,19 @@ df |> ggplot() +
       geom_point(aes(x = age, y = plasma, color = prediction)) +
       geom_function(fun = plasma_function) +
       labs(x = "Age", y = "Plasma glucose concentration", color = "Predicted to have diabetes?")
+
+classification_threshold <- 0.2
+df$prediction02 <- df$predicted_prob > classification_threshold
+
+df |> ggplot() +
+      geom_point(aes(x = age, y = plasma, color = prediction02)) +
+      #geom_function(fun = plasma_function) +
+      labs(x = "Age", y = "Plasma glucose concentration", color = "Predicted to have diabetes?")
+
+classification_threshold <- 0.8
+df$prediction08 <- df$predicted_prob > classification_threshold
+
+df |> ggplot() +
+      geom_point(aes(x = age, y = plasma, color = prediction08)) +
+      #geom_function(fun = plasma_function) +
+      labs(x = "Age", y = "Plasma glucose concentration", color = "Predicted to have diabetes?")
