@@ -720,7 +720,7 @@ $z = k1 + k2 \cdot x_2 + k_3 \cdot x_1$ where $x_1$ is plasma glucose concentrat
 $p(Y = 1 | x_1, x_2) = \frac{e ^{z} }{1 + e ^{z}}$.
 
 ```{r}
-m = glm(diabetes ~ age + plasma, data=train, family="binomial")
+m = glm(diabetes ~ age + plasma, data=df, family="binomial")
 
 df$predicted_prob <- predict(m, newdata = df, type = "response")
 classification_threshold <- 0.5
@@ -738,7 +738,109 @@ df |> ggplot() +
 ```
 
 ## 3.3
+Since \( r = 0.5 \) we have that the decision boundary can be solved from the equation
+\begin{align*}
+ \frac{e ^{k_0 + k_1 \cdot x_2 + k_2 \cdot x_1}}{1 + e ^{k_0 + k_1 \cdot x_2 + k_2 \cdot x_1}} = 0.5
+\end{align*}
 
+Which is equivalent to
+\begin{align*}
+k_0 + k_1 \cdot x_2 + k_2 \cdot x_1 =  0
+\end{align*}
+
+```{r}
+# 0 = k1 + k2 * age + k3 * plasma
+k1 <- summary(m)$coefficients[1]
+k2 <- summary(m)$coefficients[2]
+k3 <- summary(m)$coefficients[3]
+
+# plasma = (-k1 -k2 * age) / k3
+plasma_function <- function(x)(-k1 -k2 * x) / k3
+
+df |> ggplot() +
+      geom_point(aes(x = age, y = plasma, color = prediction)) +
+      geom_function(fun = plasma_function) +
+      labs(x = "Age", y = "Plasma glucose concentration", color = "Predicted to have diabetes?")
+
+```
+
+We see that it as we commented in the beginning of this assignment that
+it divides into a region where the negative cases are, but the remaining region for the positive cases isn't as good.
+
+## 3.4
+By changing $r$ we can have our predictor be less or more sensitive. If we have a low value then it will do more positive guesses and with a high it will be reserved to guess a case as positive. We illustrate it with 0.2 and 0.8.
+```{r}
+p <- 0.2
+df$prediction02 <- df$predicted_prob > p
+k4 <- log (p / (1-p))
+plasma_function <- function(x)( k4 -k1 -k2 * x) / k3
+
+df |> ggplot() +
+  geom_point(aes(x = age, y = plasma, color = prediction02)) +
+  geom_function(fun = plasma_function) +
+  labs(x = "Age", y = "Plasma glucose concentration", color = "Predicted to have diabetes?")
+```
+
+```{r}
+p <- 0.8
+df$prediction08 <- df$predicted_prob > p
+k4 <- log (p / (1-p))
+plasma_function <- function(x)( k4 -k1 -k2 * x) / k3
+
+
+df |> ggplot() +
+  geom_point(aes(x = age, y = plasma, color = prediction08)) +
+  geom_function(fun = plasma_function) +
+  labs(x = "Age", y = "Plasma glucose concentration", color = "Predicted to have diabetes?")
+```
+
+## 3.5
+We can attempt to improve our model by adding new features that are functions of the already existing features. We will add the following features: $z_1 = x_1  ^{4}, z_2 = x_1  ^{3} x_2, z_3 = x_1  ^{2} x_2 ^2 , z_4 =  x_1 x_2 ^{3} , z_5 = z_2  ^{4} .$
+
+```{r}
+df$z1 <- df$plasma ^ 4
+df$z2 <- df$plasma ^ 3 * df$age
+df$z3 <- df$plasma ^ 2 * df$age ^ 2
+df$z4 <- df$plasma  * df$age ^ 3
+df$z5 <- df$age ^ 4
+
+m2 = glm(diabetes ~ age + plasma + z1 + z2 + z3 + z4 + z5,
+         data=df, family="binomial")
+
+df$predicted_prob2 <- predict(m2, newdata = df, type = "response")
+classification_threshold <- 0.5
+df$prediction2 <- df$predicted_prob2 > classification_threshold
+
+# 0 = k1 + k2 * age + k3 * plasma
+k1 <- summary(m)$coefficients[1]
+k2 <- summary(m)$coefficients[2]
+k3 <- summary(m)$coefficients[3]
+
+# plasma = (-k1 -k2 * age) / k3
+plasma_function <- function(x)(-k1 -k2 * x) / k3
+
+df |> ggplot() +
+  geom_point(aes(x = age, y = plasma, color = prediction2)) +
+  geom_function(fun = plasma_function) +
+  labs(x = "Age", y = "Plasma glucose concentration", color = "Predicted to have diabetes?")
+
+```
+
+```{r}
+missclassification_rate <- sum(df$diabetes != df$prediction2) / nrow(df)
+missclassification_rate
+
+```
+
+And we can see we get a better missclassification rate. It might seem like the decission boundary hasn't changed drastically, but now we must consider that we haven't graphed out all the variables being considered, thus we have decision plan in a higher dimensional space, and it just happens that the intersection with the age-plasma plane has similar line.
+
+# Assignment 4 
+It can be important to choose different probability thresholds since
+sometimes one might prioritize identifying all the positive cases more than avoiding false positives. An example is when detecting diseases, as the consequences for giving a false positive is less severe than missing out on identifying a true case (page 50).
+
+The cost function associated to linear regression can be derived using MLE which is included in equation 3.21 on page 44
+
+On page 14 it mentions that collecting values for supervised problems may be done by having an expert manually label data, or the data might already have recorded the variable we want to predict.
 # Appendix
 
 ## Code for Asssignment 1
@@ -1083,7 +1185,7 @@ df |> ggplot() +
 
 df$diabetes
 
-m = glm(diabetes ~ age + plasma, data=train, family="binomial")
+m = glm(diabetes ~ age + plasma, data=df, family="binomial")
 
 df$predicted_prob <- predict(m, newdata = df, type = "response")
 classification_threshold <- 0.5
